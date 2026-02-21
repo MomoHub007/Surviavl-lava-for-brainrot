@@ -3,8 +3,8 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Survival Lava from Brainrot V1.4",
-    SubTitle = "by MomoHub",
+    Title = "MomoHub",
+    SubTitle = "Survival lava from Brainrot",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 540),
     Acrylic = true,
@@ -216,7 +216,6 @@ local function getRebirthTargetName()
     return success and targetName or nil
 end
 
--- [อัปเดต] เช็คว่า Target วางอยู่ในพล็อตของตัวเองแล้วหรือยัง
 local function checkTargetInPlot(targetName)
     if not targetName then return false end
     local myPlot = getMyPlot()
@@ -393,7 +392,7 @@ task.spawn(function()
     end
 end)
 
--- [อัปเดต] Auto Collect Request
+-- Auto Collect Request
 task.spawn(function()
     while task.wait(0.1) do
         if AutoCollectRequestEnabled then
@@ -439,7 +438,7 @@ task.spawn(function()
     end
 end)
 
--- [อัปเดต] Auto Place Brainrot Rebirth
+-- Auto Place Brainrot Rebirth
 task.spawn(function()
     while task.wait(1) do
         if AutoPlaceRebirthEnabled then
@@ -472,14 +471,46 @@ task.spawn(function()
     end
 end)
 
--- Auto Rebirth
+-- [อัปเดตใหม่] Auto Rebirth + ลบ Notifications ขั้นเด็ดขาด
+local notificationConnection = nil
 task.spawn(function()
     while task.wait(1) do
         if AutoRebirthEnabled then
+            -- จัดการ Notifications
+            pcall(function()
+                local notifications = player.PlayerGui.HUD.Notifications
+                if notifications then
+                    -- 1. ลบของเก่าที่ค้างอยู่ทิ้ง
+                    for _, child in pairs(notifications:GetChildren()) do
+                        if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+                            child:Destroy()
+                        end
+                    end
+                    
+                    -- 2. สร้างตัวดักจับ (Event) ลบทิ้งทันทีที่มันถูกสร้างขึ้นมาใหม่ (เคลียร์เด็ดขาด)
+                    if not notificationConnection then
+                        notificationConnection = notifications.ChildAdded:Connect(function(child)
+                            if AutoRebirthEnabled then
+                                if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+                                    child:Destroy()
+                                end
+                            end
+                        end)
+                    end
+                end
+            end)
+
+            -- ส่งคำสั่ง Rebirth
             pcall(function()
                 local args = { "Rebirth" }
                 ReplicatedStorage:WaitForChild("Events"):WaitForChild("Rebirth"):InvokeServer(unpack(args))
             end)
+        else
+            -- เคลียร์การเชื่อมต่อทิ้งเมื่อผู้เล่นกดปิด Auto Rebirth
+            if notificationConnection then
+                notificationConnection:Disconnect()
+                notificationConnection = nil
+            end
         end
     end
 end)
