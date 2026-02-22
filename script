@@ -3,8 +3,8 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "MomoHub",
-    SubTitle = "Survival lava from Brainrot",
+    Title = "MoMoHub",
+    SubTitle = "Survival lava for Brainrot",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 540),
     Acrylic = true,
@@ -19,6 +19,7 @@ local Tabs = {
     Sell = Window:AddTab({ Title = "Sell Brainrot", Icon = "coins" }),
     Rebirth = Window:AddTab({ Title = "Rebirth", Icon = "refresh-cw" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
+    Discord = Window:AddTab({ Title = "Discord", Icon = "message-circle" }), -- [NEW] แท็บ Discord
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -397,9 +398,7 @@ task.spawn(function()
     while task.wait(0.1) do
         if AutoCollectRequestEnabled then
             local targetName = getRebirthTargetName()
-            -- เงื่อนไข: ถ้าวางอยู่ในพล็อตแล้ว ข้ามฟังก์ชันนี้ไปเลย
             if targetName and not checkTargetInPlot(targetName) then
-                -- เช็คว่าในกระเป๋ามีหรือยัง (ถ้ามีในกระเป๋าแล้วก็ไม่ต้องไปเก็บ)
                 local hasInBackpack = player.Backpack:FindFirstChild(targetName) or (player.Character and player.Character:FindFirstChild(targetName))
                 
                 if not hasInBackpack then
@@ -443,7 +442,6 @@ task.spawn(function()
     while task.wait(1) do
         if AutoPlaceRebirthEnabled then
             local targetName = getRebirthTargetName()
-            -- เงื่อนไข: ถ้าวางอยู่ในพล็อตแล้ว ข้ามฟังก์ชันนี้ไปเลย
             if targetName and not checkTargetInPlot(targetName) then
                 local itemToPlace = player.Backpack:FindFirstChild(targetName)
                 if itemToPlace then
@@ -471,23 +469,20 @@ task.spawn(function()
     end
 end)
 
--- [อัปเดตใหม่] Auto Rebirth + ลบ Notifications ขั้นเด็ดขาด
+-- Auto Rebirth + ลบ Notifications
 local notificationConnection = nil
 task.spawn(function()
     while task.wait(1) do
         if AutoRebirthEnabled then
-            -- จัดการ Notifications
             pcall(function()
                 local notifications = player.PlayerGui.HUD.Notifications
                 if notifications then
-                    -- 1. ลบของเก่าที่ค้างอยู่ทิ้ง
                     for _, child in pairs(notifications:GetChildren()) do
                         if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
                             child:Destroy()
                         end
                     end
                     
-                    -- 2. สร้างตัวดักจับ (Event) ลบทิ้งทันทีที่มันถูกสร้างขึ้นมาใหม่ (เคลียร์เด็ดขาด)
                     if not notificationConnection then
                         notificationConnection = notifications.ChildAdded:Connect(function(child)
                             if AutoRebirthEnabled then
@@ -500,13 +495,11 @@ task.spawn(function()
                 end
             end)
 
-            -- ส่งคำสั่ง Rebirth
             pcall(function()
                 local args = { "Rebirth" }
                 ReplicatedStorage:WaitForChild("Events"):WaitForChild("Rebirth"):InvokeServer(unpack(args))
             end)
         else
-            -- เคลียร์การเชื่อมต่อทิ้งเมื่อผู้เล่นกดปิด Auto Rebirth
             if notificationConnection then
                 notificationConnection:Disconnect()
                 notificationConnection = nil
@@ -527,7 +520,7 @@ Tabs.Main:AddToggle("AutoUpgradeBrainrotToggle", { Title = "Auto Upgrade Brainro
 Tabs.Main:AddToggle("AutoSpeedToggle", { Title = "Auto Upgrade Speed", Default = false, Callback = function(v) AutoSpeedEnabled = v end })
 Tabs.Main:AddDropdown("SpeedAmount", { Title = "Speed Amount", Values = {1, 5, 10}, Default = 10, Callback = function(v) SpeedUpgradeAmount = tonumber(v) end })
 
--- Brainrot Tab (Collect Only)
+-- Brainrot Tab
 Tabs.Brainrot:AddToggle("AutoCollectToggle", { Title = "Enable Auto Collect", Default = false, Callback = function(v) AutoCollectEnabled = v end })
 Tabs.Brainrot:AddDropdown("CollectMutationSelect", { Title = "Collect Mutations", Values = {"Normal", "Gold", "Emerald", "Diamond", "Rainbow", "Bloodmoon"}, Multi = true, Default = {"Normal"}, Callback = function(v) SelectedCollectMutations = v end })
 Tabs.Brainrot:AddDropdown("CollectRaritySelect", { Title = "Collect Rarities", Values = RarityPriority, Multi = true, Default = {"Common"}, Callback = function(v) SelectedCollectRarities = v end })
@@ -562,6 +555,21 @@ if raritiesFolder then
     end
 end
 
+-- [NEW] Discord Tab
+local DiscordSection = Tabs.Discord:AddSection("Join Our Community")
+DiscordSection:AddButton({
+    Title = "Copy Discord Link",
+    Description = "Click to copy the link to the clipboard.",
+    Callback = function()
+        if setclipboard then
+            setclipboard("https://discord.gg/k2wdyy8QMN")
+            Fluent:Notify({Title = "Discord", Content = "Link successfully copied.! (Copied to clipboard)", Duration = 3})
+        else
+            Fluent:Notify({Title = "Error", Content = "Your runner does not support copying links.", Duration = 3})
+        end
+    end
+})
+
 -- ==========================================
 -- Settings System
 -- ==========================================
@@ -573,3 +581,56 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
+
+-- ==========================================
+-- [NEW] Floating UI Toggle System
+-- ==========================================
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "HubMobileToggle"
+ScreenGui.ResetOnSpawn = false
+local success, _ = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+local ToggleBtn = Instance.new("ImageButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Parent = ScreenGui
+ToggleBtn.BackgroundTransparency = 1 
+ToggleBtn.Position = UDim2.new(0.5, -30, 0.1, 0) 
+ToggleBtn.Size = UDim2.new(0, 60, 0, 60) 
+ToggleBtn.Image = "rbxthumb://type=Asset&id=82100122245666&w=150&h=150" -- โลโก้ตัว M
+
+local dragging = false
+local dragStart = nil
+local startPos = nil
+local clickTime = 0
+
+ToggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ToggleBtn.Position
+        clickTime = tick() 
+    end
+end)
+
+ToggleBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+        if tick() - clickTime < 0.2 then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
+        end
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        ToggleBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
