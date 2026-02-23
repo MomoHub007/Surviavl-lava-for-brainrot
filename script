@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "MoMoHub Fuse Machine",
+    Title = "MoMoHub V.AutoFuse",
     SubTitle = "Survival lava for Brainrot",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 540),
@@ -581,11 +581,14 @@ task.spawn(function()
 end)
 
 -- Auto Fuse Loop
+-- Auto Fuse Loop
 task.spawn(function()
     while task.wait(1) do
         if AutoFuseEnabled then
             local fuseMachine = workspace:FindFirstChild("GameFolder") and workspace.GameFolder:FindFirstChild("FuseMachine")
-            local timerDisplay = fuseMachine and fuseMachine:FindFirstChild("TimerDisplay") and fuseMachine.TimerDisplay:FindFirstChild("SurfaceGui") and fuseMachine.TimerDisplay.SurfaceGui:FindFirstChild("Display")
+            
+            -- [FIX 1] แก้ไข Path ป้ายให้รองรับ Frame ที่คั่นอยู่ตรงกลาง (ใช้ true เพื่อค้นหาทะลุโฟลเดอร์)
+            local timerDisplay = fuseMachine and fuseMachine:FindFirstChild("TimerDisplay") and fuseMachine.TimerDisplay:FindFirstChild("Display", true)
             
             local remotes = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("FuseMachine")
             local placeRemote = remotes and remotes:FindFirstChild("PlaceBrainrot")
@@ -627,6 +630,7 @@ task.spawn(function()
                     task.wait(1)
                     
                     -- Read the display to check completion time
+                    print("⏳ Waiting for Fuse... (Reading time from display)")
                     while AutoFuseEnabled do
                         local timeText = ""
                         pcall(function() timeText = timerDisplay.Text:lower() end)
@@ -641,13 +645,14 @@ task.spawn(function()
                     if not AutoFuseEnabled then continue end
                     
                     -- Press Collect when fusion is done
-                
+                    print("✅ Fuse completed! Collecting items...")
                     pcall(function() collectRemote:FireServer() end)
                     task.wait(1)
                     
                     -- Teleport back to own Plot
                     local myPlot = getMyPlot()
                     if myPlot and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        print("🏠 Teleporting back to Plot...")
                         local hrp = player.Character.HumanoidRootPart
                         local targetPos = myPlot:IsA("Model") and myPlot:GetPivot() or myPlot.CFrame
                         
@@ -661,8 +666,12 @@ task.spawn(function()
                     end
                     
                     task.wait(2)
+                else
+                    -- [FIX 2] เพิ่มแจ้งเตือนเวลาของไม่ครบ จะได้ไม่งงว่าทำไมมันเงียบ
+                    warn("⏳ Waiting for matching Brainrots... (Make sure you have exactly 4 items that match your UI settings in your Backpack)")
                 end
             else
+                warn("❌ Remote or TimerDisplay not found! Try moving closer to the Fuse Machine")
                 task.wait(3)
             end
         end
@@ -699,6 +708,21 @@ Tabs.Sell:AddDropdown("SellMutationSelect", { Title = "Sell Mutations", Values =
 Tabs.Sell:AddDropdown("SellRaritySelect", { Title = "Sell Rarities", Values = RarityPriority, Multi = true, Default = {"Common"}, Callback = function(v) SelectedSellRarities = v end })
 
 -- FuseMachine Tab
+Tabs.FuseMachine:AddButton({ 
+    Title = "Teleport to Fuse Machine", 
+    Callback = function()
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local fuseMachine = workspace:FindFirstChild("GameFolder") and workspace.GameFolder:FindFirstChild("FuseMachine")
+            if fuseMachine then
+                local targetCFrame = fuseMachine:IsA("Model") and fuseMachine:GetPivot() or fuseMachine.CFrame
+                char.HumanoidRootPart.CFrame = targetCFrame * CFrame.new(0, 5, 10) -- Stand in front of the machine
+            else
+                Fluent:Notify({Title = "Error", Content = "Fuse Machine not found!", Duration = 3})
+            end
+        end
+    end 
+})
 Tabs.FuseMachine:AddToggle("AutoFuseToggle", { Title = "Enable Auto Fuse", Default = false, Callback = function(v) AutoFuseEnabled = v end })
 for i = 1, 4 do
     Tabs.FuseMachine:AddSection("🎯 Config Slot " .. i)
@@ -723,23 +747,6 @@ Tabs.Rebirth:AddToggle("AutoCollectRequestToggle", { Title = "Auto Collect Reque
 Tabs.Rebirth:AddToggle("AutoPlaceRebirthToggle", { Title = "Auto Place Rebirth", Default = false, Callback = function(v) AutoPlaceRebirthEnabled = v end })
 Tabs.Rebirth:AddToggle("AutoRebirthToggle", { Title = "Auto Rebirth", Default = false, Callback = function(v) AutoRebirthEnabled = v end })
 
--- Teleport Tab
--- Teleport to FuseMachine button
-Tabs.Teleport:AddButton({ 
-    Title = "Teleport to Fuse Machine", 
-    Callback = function()
-        local char = player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local fuseMachine = workspace:FindFirstChild("GameFolder") and workspace.GameFolder:FindFirstChild("FuseMachine")
-            if fuseMachine then
-                local targetCFrame = fuseMachine:IsA("Model") and fuseMachine:GetPivot() or fuseMachine.CFrame
-                char.HumanoidRootPart.CFrame = targetCFrame * CFrame.new(0, 5, 10) -- Stand in front of the machine
-            else
-                Fluent:Notify({Title = "Error", Content = "Fuse Machine not found!", Duration = 3})
-            end
-        end
-    end 
-})
 
 if raritiesFolder then
     for _, zone in pairs(raritiesFolder:GetChildren()) do
